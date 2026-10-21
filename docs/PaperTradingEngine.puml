@@ -1,0 +1,137 @@
+@startuml PaperTradingEngine
+skinparam monochrome true
+skinparam backgroundColor #FFFFFF
+skinparam classBackgroundColor #FFFFFF
+skinparam dpi 200
+
+package "Contracts" {
+
+    class LivePriceUpdatedEvent {
+        + String Symbol
+        + decimal Price
+        + DateTime Timestamp
+        + decimal Quantity
+    }
+
+    interface ILivePricePublisher {
+        + Task PublishAsync(LivePriceUpdatedEvent priceEvent)
+    }
+
+    interface ILivePriceConsumer {
+        + Task ConsumerAsync(Func<LivePriceUpdatedEvent, Task> onMessage)
+    }
+}
+
+package "Infrastructure" {
+
+    class RabbitMQSettings {
+        + {static} String SectionName
+        + String HostName
+        + int Port
+        + String UserName
+        + String Password
+        + String LivePricesExchangeName
+        + String ExecutionQueueName
+        + String ReportingQueueName
+    }
+
+    interface IRabbitMQInfrastructure {
+        + IConnection Connection
+        + IChannel Channel
+        + Task InitializeAsync()
+    }
+
+    class RabbitMQInfrasctructure implements IRabbitMQInfrastructure {
+        - RabbitMQSettings _settings
+        + Task InitializeAsync()
+    }
+
+    class LivePricePublisher implements ILivePricePublisher {
+        - IRabbitMQInfrastructure _rabbitmq
+        + Task PublishAsync(LivePriceUpdatedEvent priceEvent)
+    }
+
+    class LivePriceConsumer implements ILivePriceConsumer {
+        - {static} String QueueName = "execution_queue"
+        - IRabbitMQInfrastructure _rabbitmq
+        + Task ConsumerAsync(Func<LivePriceUpdatedEvent, Task> onMessage)
+    }
+}
+
+package "MarketDataIngestion" {
+
+    class BinanceApiSettings {
+        + {static} String SectionName = "Binance"
+        + String BaseUrl
+        + String[] Streams
+        + String BuildStreamUrl()
+    }
+
+    class BinanceEnvelope {
+        + BinanceTrade Data
+    }
+
+    class BinanceTrade << (R,#FFFFFF) record >> {
+        + String EventType   'e
+        + long   EventTime    'E
+        + String Symbol       's
+        + long   TradeId      't
+        + decimal Price       'p
+        + long   TradeTime    'T
+        + decimal Quantity    'q
+        + bool   Sell         'm
+    }
+
+    interface IBinanceStreamClient {
+        + IAsyncEnumerable<BinanceTrade> StreamTradesAsync(CancellationToken ct)
+    }
+
+    class BinanceStreamClient implements IBinanceStreamClient {
+        - BinanceApiSettings _apiSettings
+        - JsonSerializerOptions _jsonOptions
+        + IAsyncEnumerable<BinanceTrade> StreamTradesAsync(CancellationToken ct)
+        - {static} Task<String> ReceiveTextAsync(ClientWebSocket socket, byte[] buffer, CancellationToken ct)
+        - BinanceTrade ParseTrade(String json)
+    }
+
+    class ProducerWorker as "Worker" {
+        - IBinanceStreamClient _streamClient
+        - ILivePricePublisher _publisher
+        - IRabbitMQInfrastructure _rabbitmq
+        # Task ExecuteAsync(CancellationToken stoppingToken)
+        - {static} LivePriceUpdatedEvent MapToEvent(BinanceTrade trade)
+    }
+}
+
+package "ExecutionWorker" {
+
+    class ConsumerWorker as "Worker" {
+        - ILivePriceConsumer _consumer
+        - IRabbitMQInfrastructure _rabbitmq
+        # Task ExecuteAsync(CancellationToken stoppingToken)
+        - Task ProcessPriceAsync(LivePriceUpdatedEvent priceEvent)
+    }
+}
+
+RabbitMQInfrasctructure --> RabbitMQSettings
+LivePricePublisher --> IRabbitMQInfrastructure
+LivePriceConsumer --> IRabbitMQInfrastructure
+
+BinanceStreamClient --> BinanceApiSettings
+BinanceStreamClient ..> BinanceEnvelope
+BinanceEnvelope *-- BinanceTrade
+
+ProducerWorker --> IBinanceStreamClient
+ProducerWorker --> ILivePricePublisher
+ProducerWorker --> IRabbitMQInfrastructure
+ProducerWorker ..> BinanceTrade
+ProducerWorker ..> LivePriceUpdatedEvent
+
+ConsumerWorker --> ILivePriceConsumer
+ConsumerWorker --> IRabbitMQInfrastructure
+ConsumerWorker ..> LivePriceUpdatedEvent
+
+ILivePricePublisher ..> LivePriceUpdatedEvent
+ILivePriceConsumer ..> LivePriceUpdatedEvent
+
+@enduml

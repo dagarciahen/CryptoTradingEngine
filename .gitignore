@@ -5,6 +5,7 @@
 .vscode/
 *.user
 *.suo
+checkpoint/
 
 Thumbs.db
 .DS_Store

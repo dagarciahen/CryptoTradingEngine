@@ -7,9 +7,10 @@ using Contracts.Events;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-builder.Services.Configure<BinanceSettings>(
-    builder.Configuration.GetSection(BinanceSettings.SectionName));
+builder.Services.Configure<BinanceApiSettings>(
+    builder.Configuration.GetSection(BinanceApiSettings.SectionName));
 
+builder.Services.AddSingleton<IBinanceStreamClient, BinanceStreamClient>();
 builder.Services.AddSingleton<ILivePricePublisher, LivePricePublisher>();
 builder.Services.AddSingleton<IRabbitMQInfrastructure, RabbitMQInfrasctructure>();
 

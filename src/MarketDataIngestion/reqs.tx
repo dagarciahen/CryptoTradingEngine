@@ -1,0 +1,11 @@
+use case
+-> ingest to the royect of market data from binance
+-- real time priceing 
+
+we consume as an event the public trades of binance we transform it to internal events and public
+int rabbitmq to then simulate orders with real price
+
+1. Soo i may need
+Worker for MarkerDataINgestion
+WebSOcketApi from binance as better for real data
+use restapi to check health 
