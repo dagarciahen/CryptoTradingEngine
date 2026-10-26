@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "1j7D04dZEe8=",
+  "dgSpecHash": "pO2fWmhMH+Y=",
   "success": true,
-  "projectFilePath": "C:\\Users\\dangarcia\\source\\repos\\PTS\\BinanceTradeEngine\\src\\Contracts\\Contracts.csproj",
+  "projectFilePath": "C:\\source\\PaperTradingEngine\\src\\Contracts\\Contracts.csproj",
   "expectedPackageFiles": [],
   "logs": []
 }

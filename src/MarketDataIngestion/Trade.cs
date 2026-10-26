@@ -63,6 +63,19 @@ public class OrderBookResponse
 	public List<List<string>> Asks {get;set;} = [];
 }
 
+public class OrderBookStreamResponse
+{
+	public string EventType {get;set;}
+	public int EventTyme {get;set;}
+	public string Symbol {get;set;}
+	public int FirstUpdateId {get;set;}
+	public int FinalUpdateId {get;set;}
+
+	List<BookLevel> Bids {get; set;}
+	List<BookLevel> Asks {get;set;}
+	
+}
+
 public class StreamMessageResponse<T>
 {
 	public string Stream {get; set;}
@@ -75,6 +88,7 @@ public class OrderStreamResponse
 	public int EventTime {get;set;}
 	public string Symbol {get;set;}
 	public string FirstIdEvent {get;set;}
+}
 
 
 

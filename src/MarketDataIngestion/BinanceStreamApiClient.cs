@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using System.Net.WebSockets;
+using System.Net.Sockets;
 
 namespace MarketDataIngestion;
 
@@ -28,7 +29,7 @@ public class BinanceStreamClient
 		{
 			string json = Encoding.UTF8.GetString(buffer, 0, receiveResult.Count);
 			var message = JsonSerializer.Deserialize<StreamMessageResponse<Trade>>(json);
-			if (message is null || message.?Data is null)
+			if (message is null || message.Data is null)
 				continue;
 			Trade trade = message.Data;
 			
@@ -37,10 +38,44 @@ public class BinanceStreamClient
 		await _socket.CloseAsync(receiveResult.CloseStatus.Value, receiveResult.CloseStatusDescription, CancellationToken.None);
 	}
 
-	public async Task AveragePriceStreamAsync(string symbol)
+	public async Task AveragePriceStreamAsync(string symbol, CancellationToken ct = default)
 	{
 		var uri = new Uri($"{_streamSettings.EndPoint}/ws/{symbol.ToLower()}@avgPrice");
 		await _socket.ConnectAsync(uri, CancellationToken.None);
 		byte[] buffer = new byte[4096];
-		var receiveResult = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-		await _socket.CloseAsync(receiveResult.
+		WebSocketReceiveResult receiveResult = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+		while (_socket.State == WebSocketState.Open)
+		{
+			string json = Encoding.UTF8.GetString(buffer, 0, receiveResult.Count);
+			var message = JsonSerializer.Deserialize<AveragePriceResponse>(json);
+			if (message is null)
+				continue;
+			receiveResult = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+		}
+			await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "closing", ct);
+	}
+		
+	public async Task OrderBookStremAsync(string symbol, CancellationToken ct = default)
+	{
+	var uri = new Uri($"{_streamSettings.EndPoint}/ws/{symbol.ToLower()}@depth");
+	await _socket.ConnectAsync(uri, CancellationToken.None);
+	byte[] buffer = new byte[4096];
+	WebSocketReceiveResult receiveResult = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+	while (_socket.State == WebSocketState.Open)
+	{
+		string json = Encoding.UTF8.GetString(buffer, 0, receiveResult.Count);
+		var message = JsonSerializer.Deserialize<OrderBookStreamResponse>(json);
+		if (message is null)
+			continue;
+		receiveResult = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+	}
+	
+		await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "closing", ct);
+	}
+		
+}
+
+
+
+		
+
